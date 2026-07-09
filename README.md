@@ -5,7 +5,7 @@ raw Seurat object of sorted, plate-based scRNA-seq, the code runs QC, clustering
 expression, gene-set enrichment (GSEA and ssGSEA), curated module scores, and SCENIC across a
 few clinical-state comparisons (IA, IC and FC HBcAg-specific cells, plus an HCV-E2 arm).
 
-It accompanies my bachelor thesis at Erasmus MC: [read the thesis](thesis/main.pdf).
+It accompanies my bachelor thesis: [link to the thesis](thesis/main.pdf).
 
 The code is split three ways:
 
