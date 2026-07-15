@@ -68,10 +68,3 @@ day-to-day supervision, and to André Boonstra for hosting the project in the De
 Gastroenterology and Hepatology at Erasmus MC. I am also grateful to Dwin Grashof for his weekly
 feedback during the group meetings. Finally, I want to thank the Boonstra laboratory for generating
 the single-cell data analyzed here, as well as everyone involved in sample collection and sequencing.
-
-During this thesis, I have used a large language model (Claude Opus, Anthropic) in combination with an
-inline AI-driven grammar check (Grammarly) to assist with drafting and editing the text and to give
-suggestions for clarity and language. It has also assisted in writing and debugging parts of the
-analysis code. It was not used to generate the underlying data or results. It has also been used to
-quickly identify genes of interest from large sets of outputs. I reviewed and revised these results
-before using them in the analysis.
