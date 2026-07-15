@@ -50,8 +50,10 @@ Rscript pipeline/run_all.R
 
 This builds the QC'd, clustered cache once (`00_prepare`), then runs steps `01`-`06` and `08`.
 Any step also runs on its own, e.g. `Rscript pipeline/03_deg.R`. SCENIC is heavy and gated off;
-run it per comparison with `RUN_SCENIC=TRUE Rscript pipeline/07_scenic.R hbcag_ia_vs_fc`. The
-signature score (`09_signature.R`) is a separate post-hoc step.
+run it per comparison with `RUN_SCENIC=TRUE Rscript pipeline/07_scenic.R hbcag_ia_vs_fc`. Once a
+run is cached, `Rscript pipeline/07_scenic.R hbcag_ia_vs_fc loom` exports it as a SCope loom
+(<https://scope.aertslab.org>) without re-inferring the network. The signature score
+(`09_signature.R`) is a separate post-hoc step.
 
 You need R with Seurat v5 and the usual analysis packages (tidyverse, clusterProfiler,
 enrichplot, GSVA, msigdbr, DoubletFinder, org.Hs.eg.db; plus SCENIC, AUCell, GENIE3 and

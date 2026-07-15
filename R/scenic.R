@@ -1,4 +1,75 @@
-# SCENIC regulon inference and differential regulon activity, gated behind RUN_SCENIC and driven per comparison/cluster by pipeline/07_scenic.R.
+# SCENIC regulon inference, differential activity, and SCope loom export, gated behind RUN_SCENIC, driven by pipeline/07_scenic.R.
+
+# Loom cell annotations; cluster ids need the antigen-level re-clustering, not the cache's whole-object seurat_clusters.
+loom_cell_info <- function(obj, spec, cells) {
+  cellInfo <- readRDS(file.path(spec$run_dir, "int", "cellInfo.Rds"))[cells, , drop = FALSE]
+  meta <- obj@meta.data[cells, , drop = FALSE]
+  for (cn in c("Sample", "Antigen", "Sequencing_batch", "Cohort")) {
+    if (cn %in% colnames(meta)) cellInfo[[cn]] <- trimws(as.character(meta[[cn]]))
+  }
+
+  ag <- tryCatch(cluster_umap(subset_antigen(obj, spec$antigen)), error = function(e) NULL)
+  if (is.null(ag) || !all(cells %in% colnames(ag))) {
+    message("Antigen-level clustering unavailable; loom exported without cluster annotation.")
+    return(cellInfo)
+  }
+  ids <- as.character(ag$seurat_clusters[cells])
+  cellInfo$Cluster <- ids
+  labelled <- length(spec$antigen) == 1 && spec$antigen %in% names(CLUSTER_LABELS)
+  if (labelled) cellInfo$Cluster_label <- cluster_name(ids, spec$antigen)
+  cellInfo
+}
+
+# Export a cached run to a SCope loom. -> <run_dir>/output/scenic.loom
+scenic_export_loom <- function(run_dir, spec, obj, overwrite = FALSE) {
+  suppressPackageStartupMessages({
+    library(SCENIC)
+    library(SCopeLoomR)
+    library(AUCell)
+    library(Seurat)
+  })
+  run_dir <- normalizePath(run_dir, mustWork = TRUE)
+  spec$run_dir <- run_dir
+
+  tsne_file <- file.path(run_dir, "int", "tSNE_AUC_50pcs_30perpl.Rds")
+  for (f in c("int/scenicOptions.Rds", "int/cellInfo.Rds", "int/3.1_regulons_forAUCell.Rds",
+              "int/3.4_regulonAUC.Rds", "int/3.5_AUCellThresholds.Rds",
+              "int/2.4_motifEnrichment_selfMotifs_wGenes.Rds")) {
+    if (!file.exists(file.path(run_dir, f))) stop("Incomplete SCENIC run, missing ", f, " in ", run_dir)
+  }
+  if (!file.exists(tsne_file)) stop("No default 2D projection at ", tsne_file)
+
+  # export2loom only warns on a cell mismatch, so align to the t-SNE cell order.
+  cell_order <- rownames(readRDS(tsne_file)$Y)
+  missing <- setdiff(cell_order, colnames(obj))
+  if (length(missing) > 0) {
+    stop(sprintf("%d of %d run cells are absent from the prepared object - cache/run mismatch?",
+                 length(missing), length(cell_order)))
+  }
+
+  # Same gene filter as run_scenic, so the loom shows the matrix SCENIC saw.
+  exprMat <- as.matrix(GetAssayData(obj, layer = "counts"))[, cell_order, drop = FALSE]
+  exprMat <- exprMat[rowSums(exprMat > 0) >= 0.01 * ncol(exprMat), ]
+  cellInfo <- loom_cell_info(obj, spec, cell_order)
+  message(sprintf("Loom %s: %d cells, %d genes, annotations: %s",
+                  spec$name, ncol(exprMat), nrow(exprMat), paste(colnames(cellInfo), collapse = ", ")))
+
+  old_wd <- getwd()
+  on.exit(setwd(old_wd), add = TRUE)
+  setwd(run_dir)
+  # Point cellInfo at the enriched copy rather than overwriting the run's own.
+  scenicOptions <- readRDS("./int/scenicOptions.Rds")
+  saveRDS(cellInfo, "./int/cellInfo_loom.Rds")
+  scenicOptions@inputDatasetInfo$cellInfo <- "./int/cellInfo_loom.Rds"
+  loom_file <- getOutName(scenicOptions, "loomFile")
+  if (file.exists(loom_file) && overwrite) unlink(loom_file)
+  export2loom(scenicOptions, exprMat, hierarchy = c("SCENIC", spec$label, ""))
+  setwd(old_wd)
+
+  path <- file.path(run_dir, loom_file)
+  message("Wrote ", path, " (", round(file.info(path)$size / 1e6, 1), " MB)")
+  invisible(path)
+}
 
 # Differential regulon activity (Wilcoxon on AUC) between the two conditions.
 scenic_differential <- function(run_dir, spec, out_dir) {
